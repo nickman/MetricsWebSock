@@ -124,6 +124,7 @@ public class PoolThreadFactory  {
 									}
 								}
 							};
+							t.setDaemon(true);
 							return t;
 						}
 					};

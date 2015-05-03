@@ -178,6 +178,7 @@ public class WebSocketServiceHandler  implements ChannelUpstreamHandler, Channel
             throw new UnsupportedOperationException(String.format("%s frame types not supported", frame.getClass()
                     .getName()));
         }
+        
         String request = ((TextWebSocketFrame) frame).getText();
         JSONRequest wsRequest = null;
         try {

@@ -443,7 +443,7 @@ public class ConfigurationHelper {
 		 * @param type The expected type
 		 * @return the value or null if not found
 		 */		
-		public <T> T get(final String name, final Class<?> type) {
+		public <T> T get(final String name, final Class<T> type) {
 			T t = (T)config.get(name.trim().toUpperCase());
 			if(t==null) {
 				t = (T)propToDef.get(name.trim().toUpperCase());

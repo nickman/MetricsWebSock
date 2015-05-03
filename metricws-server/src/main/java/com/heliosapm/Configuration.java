@@ -24,6 +24,10 @@
  */
 package com.heliosapm;
 
+import java.beans.PropertyEditorManager;
+import java.beans.PropertyEditorSupport;
+import java.io.File;
+
 /**
  * <p>Title: Configuration</p>
  * <p>Description: Configuration constants and defaults</p> 
@@ -42,6 +46,28 @@ public class Configuration {
 	public static final String HTTP_IFACE_PROP = "mws.http.iface";
 	/** The default HTTP listening bind interface */
 	public static final String HTTP_IFACE_DEFAULT = "0.0.0.0";
+	/** The root directory to serve static content from */
+	public static final String HTTP_STATIC_DIR_PROP = "mws.http.static.dir";
+	/** The default HTTP listening bind interface */
+	public static final File HTTP_STATIC_DIR_DEFAULT = new File(new File(System.getProperty("user.home")), ".mws" + File.separator + "static");
+	
+	
+	class FilePropertyEditor extends PropertyEditorSupport {
+		@Override
+		public String getAsText() {
+			final File f = (File)getValue();			
+			return f==null ? null : f.getAbsolutePath();
+		}
+		@Override
+		public void setAsText(String text) throws IllegalArgumentException {
+			setValue(new File(text.trim()));
+		}
+	}
+	
+	static {
+		HTTP_STATIC_DIR_DEFAULT.mkdirs();
+		PropertyEditorManager.registerEditor(File.class, FilePropertyEditor.class);
+	}
 	
 	/**
 	 * @param args
