@@ -34,20 +34,6 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
-import net.opentsdb.core.TSDB;
-import net.opentsdb.tsd.HttpQuery;
-import net.opentsdb.tsd.HttpRpc;
-import net.opentsdb.tsd.RPC;
-
-import org.helios.tsdb.plugins.remoting.json.ChannelBufferizable;
-import org.helios.tsdb.plugins.remoting.json.JSONRequest;
-import org.helios.tsdb.plugins.remoting.json.JSONRequestRouter;
-import org.helios.tsdb.plugins.remoting.json.JSONResponse;
-import org.helios.tsdb.plugins.remoting.json.ResponseType;
-import org.helios.tsdb.plugins.remoting.json.serialization.TSDBTypeSerializer;
-import org.helios.tsdb.plugins.rpc.session.RPCSessionAttribute;
-import org.helios.tsdb.plugins.rpc.session.RPCSessionManager;
-import org.helios.tsdb.plugins.util.StringHelper;
 import org.jboss.netty.buffer.ChannelBuffer;
 import org.jboss.netty.buffer.ChannelBuffers;
 import org.jboss.netty.channel.Channel;
@@ -80,6 +66,13 @@ import org.slf4j.LoggerFactory;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.heliosapm.jmx.util.helpers.StringHelper;
+import com.heliosapm.mws.server.net.ws.json.ChannelBufferizable;
+import com.heliosapm.mws.server.net.ws.json.JSON;
+import com.heliosapm.mws.server.net.ws.json.JSONRequest;
+import com.heliosapm.mws.server.net.ws.json.JSONRequestRouter;
+import com.heliosapm.mws.server.net.ws.json.JSONResponse;
+import com.heliosapm.mws.server.net.ws.json.ResponseType;
 
 
 /**
@@ -89,8 +82,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
  * <p><code>org.helios.tsdb.plugins.rpc.netty.pipeline.websock.WebSocketServiceHandler</code></p>
  */
-@RPC(httpKeys={"ws"})
-public class WebSocketServiceHandler  implements ChannelUpstreamHandler, ChannelDownstreamHandler, HttpRpc {
+
+public class WebSocketServiceHandler  implements ChannelUpstreamHandler, ChannelDownstreamHandler {
 	/** The JSON Request Router */
 	protected final JSONRequestRouter router = JSONRequestRouter.getInstance();
 	protected final ObjectMapper marshaller = new ObjectMapper();	
@@ -133,7 +126,7 @@ public class WebSocketServiceHandler  implements ChannelUpstreamHandler, Channel
 		} else if((message instanceof CharSequence)) {
 			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(marshaller.writeValueAsString(message)), channel.getRemoteAddress()));
 		} else if((message instanceof JSONResponse)) {				
-			ObjectMapper mapper = (ObjectMapper)((JSONResponse)message).getChannelOption("mapper", TSDBTypeSerializer.DEFAULT.getMapper());			
+			ObjectMapper mapper = (ObjectMapper)((JSONResponse)message).getChannelOption("mapper", JSON.getMapper());			
 			ctx.sendDownstream(new DownstreamMessageEvent(channel, Channels.future(channel), new TextWebSocketFrame(mapper.writeValueAsString(message)), channel.getRemoteAddress()));					
 		} else {
             ctx.sendUpstream(e);

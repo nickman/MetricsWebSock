@@ -24,12 +24,24 @@
  */
 package com.heliosapm.mws.server;
 
+import java.net.InetSocketAddress;
+import java.util.concurrent.ExecutorService;
+
+import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.ChannelPipeline;
+import org.jboss.netty.channel.ChannelPipelineFactory;
+import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
+import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
+import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
+import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.heliosapm.Configuration;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper.Config;
+import com.heliosapm.mws.server.net.ws.WebSocketServerHandler;
 
 /**
  * <p>Title: Server</p>
@@ -39,11 +51,25 @@ import com.heliosapm.jmx.util.helpers.ConfigurationHelper.Config;
  * <p><code>com.heliosapm.mws.server.Server</code></p>
  */
 
-public class Server {
+public class Server implements ChannelPipelineFactory {
 	
 	/** Static class logger */
 	private static final Logger LOG = LoggerFactory.getLogger(Server.class);
 
+	/** The listening port */
+	protected int port = Configuration.HTTP_PORT_DEFAULT;
+	/** The listening bind interface */
+	protected String bindInterface = Configuration.HTTP_IFACE_DEFAULT;
+	/** The listener inet socket address */
+	protected InetSocketAddress inetSockAddress = null;
+	/** The server bootstrap */
+	protected ServerBootstrap bootstrap = null;
+	/** The socket channel factory */
+	protected NioServerSocketChannelFactory channelFactory = null;
+	/** The boss thread pool */
+	protected ExecutorService bossPool = null;
+	/** The worker thread pool */
+	protected ExecutorService workerPool = null;
 	
 	/**
 	 * Bootstraps the Server
@@ -55,7 +81,34 @@ public class Server {
 	public static void main(String[] args) {
 		final Config cfg = ConfigurationHelper.newInstance(args);
 		final int httpPort = cfg.get(Configuration.HTTP_PORT_PROP, int.class);
-		LOG.info("HTTP Port: {}", httpPort);
+		final String iface = cfg.get(Configuration.HTTP_IFACE_PROP, String.class);
+		LOG.info("HTTP Listening Socket: {}:{}", iface, httpPort);
 	}
+
+	/**
+	 * Creates a new Server
+	 * @param port The listening port
+	 * @param bindInterface The listening bind interface
+	 */
+	private Server(final int port, final String bindInterface) {		
+		this.port = port;
+		this.bindInterface = bindInterface;
+	}
+
+	/**
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.channel.ChannelPipelineFactory#getPipeline()
+	 */
+	@Override
+	public ChannelPipeline getPipeline() throws Exception {
+		final ChannelPipeline pipeline = Channels.pipeline();
+        pipeline.addLast("decoder", new HttpRequestDecoder());
+        pipeline.addLast("aggregator", new HttpChunkAggregator(65536));
+        pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast("handler", new WebSocketServerHandler());		
+		return pipeline;
+	}
+	
+	
 
 }

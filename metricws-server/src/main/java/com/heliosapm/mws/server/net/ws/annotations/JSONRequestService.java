@@ -22,33 +22,34 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package com.heliosapm;
+package com.heliosapm.mws.server.net.ws.annotations;
+
+import java.lang.annotation.Documented;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * <p>Title: Configuration</p>
- * <p>Description: Configuration constants and defaults</p> 
+ * <p>Title: JSONRequestService</p>
+ * <p>Description: Marker annotation indicating that the annotated class or package contains {@link JSONRequestHandler} annotated methods</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>com.heliosapm.Configuration</code></p>
+ * <p><code>org.helios.tsdb.plugins.remoting.json.JSONRequestService</code></p>
  */
-
-public class Configuration {
-
-	/** The HTTP listening port */
-	public static final String HTTP_PORT_PROP = "mws.http.port";
-	/** The default HTTP listening port */
-	public static final int HTTP_PORT_DEFAULT = 8134;
-	/** The HTTP listening bind interface */
-	public static final String HTTP_IFACE_PROP = "mws.http.iface";
-	/** The default HTTP listening bind interface */
-	public static final String HTTP_IFACE_DEFAULT = "0.0.0.0";
-	
+@Target({ElementType.TYPE, ElementType.PACKAGE})
+@Retention(RetentionPolicy.RUNTIME)
+@Documented
+@Inherited
+public @interface JSONRequestService {
 	/**
-	 * @param args
+	 * The name of the request service which maps to the <b><code>service name</code></b> of a {@link JSONRequestHandler}
 	 */
-	public static void main(String[] args) {
-		// TODO Auto-generated method stub
-
-	}
+	public String name();
+	/**
+	 * A description of the request service
+	 */
+	public String description() default "A JSON Request Service";
 
 }
