@@ -10,6 +10,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -338,11 +339,25 @@ public class ConfigurationHelper {
 	 * @param args The command line args
 	 * @return the Config instance
 	 */
-	public static Config newInstance(final String...args) {
-		return new Config(args);
+	public static Config getConfig(final String...args) {
+		Config cfg = savedConfig;
+		if(cfg==null) {
+			synchronized(Config.class) {
+				cfg = savedConfig;
+				if(cfg==null) {
+					cfg = new Config(args);
+					savedConfig = cfg;
+				} else {
+					cfg.ingest(args);
+				}
+			}
+		}
+		cfg.ingest(args);
+		return cfg;
 	}
 	
-	
+	/** Saved config instance */
+	private static volatile Config savedConfig = null;
 	/**
 	 * <p>Title: Config</p>
 	 * <p>Description: Wraps the parsed command line configuration</p> 
@@ -364,7 +379,6 @@ public class ConfigurationHelper {
 		private static final Map<String, Class<?>> configTypes = new HashMap<String, Class<?>>(); 
 		private static final Map<String, Object> propToDef = new HashMap<String, Object>();
 		private static final Map<Class<?>, PropertyEditor> propEditors = new HashMap<Class<?>, PropertyEditor>(); 
-		@SuppressWarnings("unchecked")
 		private static final Set<Class<?>> BOOLEANS = Collections.unmodifiableSet(new HashSet<Class<?>>(Arrays.asList(Boolean.class, boolean.class)));
 		
 		static {
@@ -413,10 +427,25 @@ public class ConfigurationHelper {
 				PropertyEditor pe = propEditors.get(clazz);
 				pe.setAsText(value);
 				config.put(key, pe.getValue());
-			}			
+			}
+			if("config".equalsIgnoreCase(key)) {
+				try {
+					URL configUrl = URLHelper.toURL(value);
+					Properties p = URLHelper.readProperties(configUrl);
+					for(String pkey: p.stringPropertyNames()) {
+						if(!"config".equalsIgnoreCase(pkey)) {
+							setPair(pkey, p.getProperty(pkey));
+						}
+					}
+				} catch (Exception ex) {
+					System.err.println("Failed to read config from [" + value + "]");
+					ex.printStackTrace(System.err);
+				}
+				
+			}
 		}
 		
-		private Config(final String...args) {
+		private void ingest(final String...args) {
 			final int cnt = args.length;
 			final int last = args.length-1;
 			for(int i = 0; i < cnt; i++) {
@@ -434,6 +463,10 @@ public class ConfigurationHelper {
 					}
 				}
 			}
+		}
+		
+		private Config(final String...args) {
+			ingest(args);
 		}		 
 		
 		
@@ -446,7 +479,15 @@ public class ConfigurationHelper {
 		public <T> T get(final String name, final Class<T> type) {
 			T t = (T)config.get(name.trim().toUpperCase());
 			if(t==null) {
-				t = (T)propToDef.get(name.trim().toUpperCase());
+				String s = ConfigurationHelper.getSystemThenEnvProperty(name, null);
+				if(s!=null) {
+					PropertyEditor pe = PropertyEditorManager.findEditor(type);
+					pe.setAsText(s);
+					t = (T)pe.getValue();
+					config.put(name, t);					
+				} else {
+					t = (T)propToDef.get(name.trim().toUpperCase());
+				}				
 			}
 			return t;
 		}
@@ -457,7 +498,19 @@ public class ConfigurationHelper {
 		 * @return the value or null if not found
 		 */
 		public Object get(final String name) {
-			return propToDef.get(name.trim().toUpperCase());
+			Class<?> type  = configTypes.get(name);
+			if(type!=null) {
+				return get(name, type);
+			}
+			Object o = config.get(name);
+			if(o==null) {
+				o = ConfigurationHelper.getSystemThenEnvProperty(name, null);
+				if(o==null) {
+					o = propToDef.get(name.trim().toUpperCase());
+				}
+			}
+			
+			return o;
 		}
 	}
 

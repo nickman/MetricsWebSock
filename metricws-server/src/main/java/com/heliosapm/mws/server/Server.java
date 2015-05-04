@@ -47,6 +47,7 @@ import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
+import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrameAggregator;
 import org.jboss.netty.handler.logging.LoggingHandler;
 import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
@@ -119,7 +120,16 @@ public class Server implements ChannelPipelineFactory {
 	/** The server socket channel config */
 	protected ServerSocketChannelConfig sscConfig = null;
 	
-	protected final StaticContentHandler staticContentHandler = new StaticContentHandler(ConfigurationHelper.newInstance().get(Configuration.HTTP_STATIC_DIR_PROP, File.class));
+	/** Indicates if http content chunking is enabled */
+	protected boolean chunkingEnabled = Configuration.HTTP_CHUNKING_ENABLED_DEFAULT;
+	/** The maximum chunk size */
+	protected int maxChunkSize = Configuration.HTTP_CHUNKING_MAXSIZE_DEFAULT;
+	/** Indicates if websocket frame aggregation is enabled */
+	protected boolean wsAggrEnabled = Configuration.WS_AGGR_ENABLED_DEFAULT;
+	/** The maximum websocket frame size */
+	protected int maxFrameSize = Configuration.WS_AGGR_MAXSIZE_DEFAULT;
+	
+	protected final StaticContentHandler staticContentHandler = new StaticContentHandler(ConfigurationHelper.getConfig().get(Configuration.HTTP_STATIC_DIR_PROP, File.class));
 	
 
 	/** The logging handler */
@@ -132,7 +142,7 @@ public class Server implements ChannelPipelineFactory {
 		if(instance==null) {
 			synchronized(lock) {
 				if(instance==null) {
-					final Config cfg = ConfigurationHelper.newInstance();
+					final Config cfg = ConfigurationHelper.getConfig();
 					final int httpPort = cfg.get(Configuration.HTTP_PORT_PROP, int.class);
 					final String iface = cfg.get(Configuration.HTTP_IFACE_PROP, String.class);
 					instance = new Server(httpPort, iface);
@@ -162,7 +172,7 @@ public class Server implements ChannelPipelineFactory {
 	 * </ul>
 	 */
 	public static void main(String[] args) {
-		final Config cfg = ConfigurationHelper.newInstance(args);
+		final Config cfg = ConfigurationHelper.getConfig(args);
 		final int httpPort = cfg.get(Configuration.HTTP_PORT_PROP, int.class);
 		final String iface = cfg.get(Configuration.HTTP_IFACE_PROP, String.class);
 		getInstance(httpPort, iface);
@@ -181,6 +191,13 @@ public class Server implements ChannelPipelineFactory {
 		this.port = port;
 		this.bindInterface = bindInterface;
 		inetSockAddress = new InetSocketAddress(this.bindInterface, this.port);
+		chunkingEnabled = ConfigurationHelper.getConfig().get(Configuration.HTTP_CHUNKING_ENABLED_PROP, boolean.class);
+		maxChunkSize = ConfigurationHelper.getConfig().get(Configuration.HTTP_CHUNKING_MAXSIZE_PROP, int.class);
+		
+		wsAggrEnabled = ConfigurationHelper.getConfig().get(Configuration.WS_AGGR_ENABLED_PROP, boolean.class);		
+		maxFrameSize = ConfigurationHelper.getConfig().get(Configuration.WS_AGGR_MAXSIZE_PROP, int.class);
+		
+		
 		
 		bossPool = Executors.newCachedThreadPool(PoolThreadFactory.getThreadFactory("BossPool"));
 		workerPool = Executors.newCachedThreadPool(PoolThreadFactory.getThreadFactory("WorkerPool"));
@@ -279,10 +296,17 @@ public class Server implements ChannelPipelineFactory {
 	public ChannelPipeline getPipeline() throws Exception {
 		final ChannelPipeline pipeline = Channels.pipeline();
         pipeline.addLast("decoder", new HttpRequestDecoder());
-        pipeline.addLast("aggregator", new HttpChunkAggregator(65536));
+        
+        if(chunkingEnabled) {
+        	pipeline.addLast("httpaggregator", new HttpChunkAggregator(maxChunkSize));
+        }
+        
+        // need WebSockHandler here.
+        
+        if(wsAggrEnabled) {
+        	pipeline.addLast("wsaggregator", new WebSocketFrameAggregator(maxFrameSize));
+        }
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("static", staticContentHandler);
-        pipeline.addLast("wshandler", new WebSocketServerHandler());		
         if(loggingHandlerInstalled) {
         	if(beforeRelativeHandler) {
         		pipeline.addBefore(relativeHandler, "logger", loggingHandler);

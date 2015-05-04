@@ -50,6 +50,26 @@ public class Configuration {
 	public static final String HTTP_STATIC_DIR_PROP = "mws.http.static.dir";
 	/** The default HTTP listening bind interface */
 	public static final File HTTP_STATIC_DIR_DEFAULT = new File(new File(System.getProperty("user.home")), ".mws" + File.separator + "static");
+
+	/** The HTTP chunked content enablement */
+	public static final String HTTP_CHUNKING_ENABLED_PROP = "mws.http.chunked";
+	/** The default HTTP chunked content enablement */
+	public static final boolean HTTP_CHUNKING_ENABLED_DEFAULT = true;
+	
+	/** The HTTP chunked content max chunk size */
+	public static final String HTTP_CHUNKING_MAXSIZE_PROP = "mws.http.maxchunk";
+	/** The default HTTP chunked content max chunk size */
+	public static final int HTTP_CHUNKING_MAXSIZE_DEFAULT = 65536;
+
+	/** The WebSocket frame aggregation enablement */
+	public static final String WS_AGGR_ENABLED_PROP = "mws.ws.aggr";
+	/** The default WebSocket frame aggregation enablement */
+	public static final boolean WS_AGGR_ENABLED_DEFAULT = true;
+	
+	/** The WebSocket content aggregation max frame size */
+	public static final String WS_AGGR_MAXSIZE_PROP = "mws.ws.maxframe";
+	/** The default WebSocket content aggregation max frame size */
+	public static final int WS_AGGR_MAXSIZE_DEFAULT = 65536;
 	
 	
 	class FilePropertyEditor extends PropertyEditorSupport {

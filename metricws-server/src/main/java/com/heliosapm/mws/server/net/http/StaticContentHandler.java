@@ -70,6 +70,9 @@ import org.jboss.netty.handler.ssl.SslHandler;
 import org.jboss.netty.handler.stream.ChunkedFile;
 import org.jboss.netty.util.CharsetUtil;
 
+import com.heliosapm.Configuration;
+import com.heliosapm.jmx.util.helpers.ConfigurationHelper;
+
 
 /**
  * <p>Title: StaticContentHandler</p>
@@ -141,6 +144,13 @@ public class StaticContentHandler extends SimpleChannelUpstreamHandler {
     	if(!rootDirectory.canRead()) throw new IllegalArgumentException("The passed root directory file [" + rootDirectory + "] cannot be read");
     	if(!rootDirectory.isDirectory()) throw new IllegalArgumentException("The passed root directory file [" + rootDirectory + "] is a file");
     	this.rootDirectory = rootDirectory;
+    }
+    
+    /**
+     * Creates a new StaticContentHandler
+     */
+    public StaticContentHandler() {
+    	this(ConfigurationHelper.getConfig().get(Configuration.HTTP_STATIC_DIR_PROP, File.class));
     }
 
     /**
