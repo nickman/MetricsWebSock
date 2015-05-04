@@ -15,7 +15,7 @@
  */
 package com.heliosapm.mws.server.net.json;
 
-import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Collections;
@@ -23,11 +23,13 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import org.jboss.netty.buffer.ChannelBuffer;
+import org.jboss.netty.buffer.ChannelBufferInputStream;
 import org.jboss.netty.channel.Channel;
+import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -97,6 +99,27 @@ public class JSONRequest {
 	 */
 	public static JSONRequest newJSONRequest(Channel channel, String tCode, long rid, long rerid, String serviceName, String opName, JsonNode request) {
 		return new JSONRequest(channel, tCode, rid, rerid, serviceName, opName, request);
+	}
+	
+	
+	public static JSONRequest newJSONRequest(final Channel channel, final WebSocketFrame frame) {
+		final ChannelBuffer cb = frame.getBinaryData();
+		InputStream is = null;
+		try {
+			is = new ChannelBufferInputStream(cb);
+			JsonNode jsonNode = jsonMapper.readTree(is);
+			return new JSONRequest(channel, 
+					jsonNode.get("t").asText(),
+					jsonNode.get("rid").asLong(-1L),
+					-1L,
+					jsonNode.get("svc").asText(),
+					jsonNode.get("op").asText(),
+					jsonNode);			
+		} catch (Exception e) {
+			throw new RuntimeException("Failed to parse JsonNode from passed frame buffer [" + frame + "]", e);
+		} finally {
+			if(is!=null) try { is.close(); } catch (Exception x) {/* No Op */}
+		}
 	}
 	
 	/**

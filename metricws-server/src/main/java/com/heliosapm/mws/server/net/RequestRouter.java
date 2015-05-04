@@ -36,21 +36,24 @@ import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelEvent;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
-import org.jboss.netty.channel.ChannelLocal;
 import org.jboss.netty.channel.ChannelUpstreamHandler;
 import org.jboss.netty.channel.MessageEvent;
-import org.jboss.netty.channel.SimpleChannelUpstreamHandler;
+import org.jboss.netty.channel.SimpleChannelHandler;
 import org.jboss.netty.handler.codec.http.DefaultHttpResponse;
 import org.jboss.netty.handler.codec.http.HttpRequest;
 import org.jboss.netty.handler.codec.http.HttpResponse;
 import org.jboss.netty.handler.codec.http.HttpResponseStatus;
 import org.jboss.netty.handler.codec.http.websocketx.WebSocketFrame;
 import org.jboss.netty.util.CharsetUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.heliosapm.Configuration;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper;
 import com.heliosapm.mws.server.net.http.StaticContentHandler;
+import com.heliosapm.mws.server.net.json.JSONRequest;
 import com.heliosapm.mws.server.net.json.JSONRequestRouter;
+import com.heliosapm.mws.server.net.ws.WebSocketHandshakeHandler;
 
 /**
  * <p>Title: RequestRouter</p>
@@ -60,11 +63,15 @@ import com.heliosapm.mws.server.net.json.JSONRequestRouter;
  * <p><code>com.heliosapm.mws.server.net.RequestRouter</code></p>
  */
 
-public class RequestRouter extends SimpleChannelUpstreamHandler {
+public class RequestRouter extends SimpleChannelHandler {
 	/** A map of HTTP Request handlers keyed by the URI prefix */
 	protected final Map<String, ChannelUpstreamHandler> httpHandlers = new NonBlockingHashMap<String, ChannelUpstreamHandler>(128);
 	/** The websocket request handler */
 	protected final JSONRequestRouter wsRouter = JSONRequestRouter.getInstance(); 
+	
+	/** Instance logger */
+	protected final Logger LOG = LoggerFactory.getLogger(getClass());
+
 
 	/** Counter for received telnet rpcs */
 	protected final AtomicLong telnet_rpcs_received = new AtomicLong();
@@ -77,37 +84,43 @@ public class RequestRouter extends SimpleChannelUpstreamHandler {
 	
 	/** Indicates if http content chunking is enabled */
 	protected boolean chunkingEnabled = Configuration.HTTP_CHUNKING_ENABLED_DEFAULT;
+	/** Indicates if websocket frame aggregation is enabled */
+	protected boolean wsAggrEnabled = Configuration.WS_AGGR_ENABLED_DEFAULT;
 
-	protected ChannelLocal cl = new ChannelLocal(true);
+
+	
 	
 	/**
 	 * Creates a new RequestRouter
 	 */
 	public RequestRouter() {
 		chunkingEnabled = ConfigurationHelper.getConfig().get(Configuration.HTTP_CHUNKING_ENABLED_PROP, boolean.class);
+		wsAggrEnabled = ConfigurationHelper.getConfig().get(Configuration.WS_AGGR_ENABLED_PROP, boolean.class);
 		httpHandlers.put("s", new StaticContentHandler());
+		httpHandlers.put("ws", new WebSocketHandshakeHandler());
 		httpHandlers.put("favicon.ico", new StaticContentHandler());
-		
-		
 	}
 	
+	/**
+	 * {@inheritDoc}
+	 * @see org.jboss.netty.channel.SimpleChannelHandler#messageReceived(org.jboss.netty.channel.ChannelHandlerContext, org.jboss.netty.channel.MessageEvent)
+	 */
 	@Override
-	public void handleUpstream(final ChannelHandlerContext ctx, final ChannelEvent e) throws Exception {
-		if(e instanceof MessageEvent) {
-			final Object msg = ((MessageEvent)e).getMessage();
-			final ChannelUpstreamHandler handler;
-			if(msg instanceof HttpRequest) {
-				final HttpRequest request = (HttpRequest)msg;
-				handleHttpQuery(e.getChannel(), ctx, request, e);
-				return;
-			} else if(msg instanceof WebSocketFrame) {
-				final WebSocketFrame frame = (WebSocketFrame)msg;
-				
-				return;
-			}
+	public void messageReceived(final ChannelHandlerContext ctx, final MessageEvent e) throws Exception {
+		final Object msg = e.getMessage();		
+		if(msg instanceof HttpRequest) {
+			final HttpRequest request = (HttpRequest)msg;
+			handleHttpQuery(e.getChannel(), ctx, request, e);
+			return;
+		} else if(msg instanceof WebSocketFrame) {
+			final WebSocketFrame frame = (WebSocketFrame)msg;
+			final JSONRequest jsonRequest = JSONRequest.newJSONRequest(ctx.getChannel(), frame);
+			wsRouter.route(jsonRequest);
+			return;
 		}
-		super.handleUpstream(ctx, e);
+		super.messageReceived(ctx, e);
 	}
+	
 	
     /**
      * Sends an error back to the client
@@ -144,6 +157,7 @@ public class RequestRouter extends SimpleChannelUpstreamHandler {
 	        final ChannelUpstreamHandler handler = httpHandlers.get(route);
 	        if(handler==null) {
 	        	sendError(ctx, HttpResponseStatus.NOT_FOUND, "No handler found for [" + route + "]");
+	        	return;
 	        }
 	        handler.handleUpstream(ctx, e);
 	    } catch (Exception ex) {
