@@ -22,14 +22,14 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package com.heliosapm.mws.server.net.ws.json;
+package com.heliosapm.mws.server.net.json;
 
 /**
  * <p>Title: ResponseType</p>
  * <p>Description: Enumerates the JSON response types</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>com.heliosapm.mws.server.net.ws.json.ResponseType</code></p>
+ * <p><code>com.heliosapm.mws.server.net.json.ResponseType</code></p>
  */
 
 public enum ResponseType {

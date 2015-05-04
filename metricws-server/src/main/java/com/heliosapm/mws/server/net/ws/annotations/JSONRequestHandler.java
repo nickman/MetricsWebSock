@@ -30,8 +30,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-import com.heliosapm.mws.server.net.ws.json.JSONRequest;
-import com.heliosapm.mws.server.net.ws.json.RequestType;
+import com.heliosapm.mws.server.net.json.JSONRequest;
+import com.heliosapm.mws.server.net.json.RequestType;
 
 
 /**

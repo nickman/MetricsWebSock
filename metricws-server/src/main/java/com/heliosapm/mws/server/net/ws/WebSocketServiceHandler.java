@@ -67,12 +67,12 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.heliosapm.jmx.util.helpers.StringHelper;
-import com.heliosapm.mws.server.net.ws.json.ChannelBufferizable;
-import com.heliosapm.mws.server.net.ws.json.JSON;
-import com.heliosapm.mws.server.net.ws.json.JSONRequest;
-import com.heliosapm.mws.server.net.ws.json.JSONRequestRouter;
-import com.heliosapm.mws.server.net.ws.json.JSONResponse;
-import com.heliosapm.mws.server.net.ws.json.ResponseType;
+import com.heliosapm.mws.server.net.json.ChannelBufferizable;
+import com.heliosapm.mws.server.net.json.JSON;
+import com.heliosapm.mws.server.net.json.JSONRequest;
+import com.heliosapm.mws.server.net.json.JSONRequestRouter;
+import com.heliosapm.mws.server.net.json.JSONResponse;
+import com.heliosapm.mws.server.net.json.ResponseType;
 
 
 /**

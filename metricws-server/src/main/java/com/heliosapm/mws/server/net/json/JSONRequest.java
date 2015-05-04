@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heliosapm.mws.server.net.ws.json;
+package com.heliosapm.mws.server.net.json;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -39,7 +39,7 @@ import com.heliosapm.jmx.util.helpers.StringHelper;
  * <p>Description: Encapsulates the decoded standard parts of a JSON data service request.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>com.heliosapm.mws.server.net.ws.json.JSONRequest</code></p>
+ * <p><code>com.heliosapm.mws.server.net.json.JSONRequest</code></p>
  */
 
 public class JSONRequest {

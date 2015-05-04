@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.heliosapm.mws.server.net.ws.json;
+package com.heliosapm.mws.server.net.json;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -35,7 +35,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  * <p>Description:  The standard object container for sending a response to a JSON data service caller</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><b><code>com.heliosapm.mws.server.net.ws.json.JSONResponse</code></b>
+ * <p><b><code>com.heliosapm.mws.server.net.json.JSONResponse</code></b>
  */
 
 public class JSONResponse implements ChannelBufferizable {

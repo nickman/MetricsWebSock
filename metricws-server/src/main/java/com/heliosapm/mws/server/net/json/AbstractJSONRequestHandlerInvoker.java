@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.heliosapm.mws.server.net.ws.json;
+package com.heliosapm.mws.server.net.json;
 
 /**
  * <p>Title: AbstractJSONRequestHandlerInvoker</p>
  * <p>Description: </p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>com.heliosapm.mws.server.net.ws.json.AbstractJSONRequestHandlerInvoker</code></p>
+ * <p><code>com.heliosapm.mws.server.net.json.AbstractJSONRequestHandlerInvoker</code></p>
  */
 
 public abstract class AbstractJSONRequestHandlerInvoker  {

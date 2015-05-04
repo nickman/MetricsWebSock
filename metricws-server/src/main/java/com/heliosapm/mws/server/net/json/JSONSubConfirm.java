@@ -1,7 +1,7 @@
 /**
  * 
  */
-package com.heliosapm.mws.server.net.ws.json;
+package com.heliosapm.mws.server.net.json;
 
 import org.jboss.netty.channel.Channel;
 
@@ -12,7 +12,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * <p>Description: A specialized JSONResponse for confirming a caller's subscription request</p>
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><b><code>com.heliosapm.mws.server.net.ws.json.JSONSubConfirm</code></b>
+ * <p><b><code>com.heliosapm.mws.server.net.json.JSONSubConfirm</code></b>
  */
 
 public class JSONSubConfirm extends JSONResponse {
