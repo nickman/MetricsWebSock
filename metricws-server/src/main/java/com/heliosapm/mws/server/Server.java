@@ -24,19 +24,31 @@
  */
 package com.heliosapm.mws.server;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
+import java.nio.charset.Charset;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.jboss.netty.bootstrap.ServerBootstrap;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
+import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelPipeline;
 import org.jboss.netty.channel.ChannelPipelineFactory;
 import org.jboss.netty.channel.Channels;
+import org.jboss.netty.channel.socket.ServerSocketChannel;
+import org.jboss.netty.channel.socket.ServerSocketChannelConfig;
 import org.jboss.netty.channel.socket.nio.NioServerSocketChannelFactory;
 import org.jboss.netty.handler.codec.http.HttpChunkAggregator;
 import org.jboss.netty.handler.codec.http.HttpRequestDecoder;
 import org.jboss.netty.handler.codec.http.HttpResponseEncoder;
+import org.jboss.netty.handler.logging.LoggingHandler;
+import org.jboss.netty.logging.InternalLogLevel;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.logging.Slf4JLoggerFactory;
 import org.slf4j.Logger;
@@ -48,6 +60,8 @@ import com.heliosapm.jmx.concurrency.PoolThreadFactory;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper.Config;
 import com.heliosapm.jmx.util.helpers.JMXHelper;
+import com.heliosapm.mws.server.logging.ModifiableLoggingHandler;
+import com.heliosapm.mws.server.net.http.StaticContentHandler;
 import com.heliosapm.mws.server.net.ws.WebSocketServerHandler;
 
 /**
@@ -83,6 +97,35 @@ public class Server implements ChannelPipelineFactory {
 	
 	/** The server close future */
 	protected ChannelFuture closeFuture = null;
+	/** The server channel */
+	protected Channel serverChannel = null;
+	
+	
+	// TODO:  add these to be JMX managed. Detect changes and trigger a new logging handler delegate
+	/** The logging handler name */
+	protected String loggingHandlerName = "MWSServer";
+	/** true to dump content in Hex to the log, false for events only */
+	protected boolean loggingHandlerHexDump = false;
+	/** The level of the handler logger */
+	protected InternalLogLevel loggingHandlerLevel = InternalLogLevel.INFO;
+	/** Indicates if the logging handler is installed */
+	protected boolean loggingHandlerInstalled = true;
+	/** Indicates if the logging handler is installed before (true) or after (false) the relative named handler */
+	protected boolean beforeRelativeHandler = true;
+	/** The name of the relative handler where the logger handler is installed */
+	protected String relativeHandler = "encoder";
+	/** Booting thread */
+	protected Thread bootThread = null;
+	/** The server socket channel config */
+	protected ServerSocketChannelConfig sscConfig = null;
+	
+	protected final StaticContentHandler staticContentHandler = new StaticContentHandler(ConfigurationHelper.newInstance().get(Configuration.HTTP_STATIC_DIR_PROP, File.class));
+	
+
+	/** The logging handler */
+	protected final ModifiableLoggingHandler loggingHandler = new ModifiableLoggingHandler(
+			new LoggingHandler(loggingHandlerName, loggingHandlerLevel, loggingHandlerHexDump)
+	);
 	
 	
 	public static Server getInstance() {
@@ -119,11 +162,14 @@ public class Server implements ChannelPipelineFactory {
 	 * </ul>
 	 */
 	public static void main(String[] args) {
-//		final Config cfg = ConfigurationHelper.newInstance(args);
-//		final int httpPort = cfg.get(Configuration.HTTP_PORT_PROP, int.class);
-//		final String iface = cfg.get(Configuration.HTTP_IFACE_PROP, String.class);
-//		LOG.info("HTTP Listening Socket: {}:{}", iface, httpPort);
-		getInstance();
+		final Config cfg = ConfigurationHelper.newInstance(args);
+		final int httpPort = cfg.get(Configuration.HTTP_PORT_PROP, int.class);
+		final String iface = cfg.get(Configuration.HTTP_IFACE_PROP, String.class);
+		getInstance(httpPort, iface);
+	}
+	
+	static {
+		InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
 	}
 
 	/**
@@ -131,8 +177,7 @@ public class Server implements ChannelPipelineFactory {
 	 * @param port The listening port
 	 * @param bindInterface The listening bind interface
 	 */
-	private Server(final int port, final String bindInterface) {	
-		InternalLoggerFactory.setDefaultFactory(new Slf4JLoggerFactory());
+	private Server(final int port, final String bindInterface) {			
 		this.port = port;
 		this.bindInterface = bindInterface;
 		inetSockAddress = new InetSocketAddress(this.bindInterface, this.port);
@@ -141,12 +186,89 @@ public class Server implements ChannelPipelineFactory {
 		workerPool = Executors.newCachedThreadPool(PoolThreadFactory.getThreadFactory("WorkerPool"));
 		JMXExecutorServiceWrapper.register(bossPool, JMXHelper.objectName(getClass().getPackage().getName() + ":pool=BossPool"));
 		JMXExecutorServiceWrapper.register(workerPool, JMXHelper.objectName(getClass().getPackage().getName() + ":pool=WorkerPool"));
-		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool);
+		channelFactory = new NioServerSocketChannelFactory(bossPool, workerPool) {
+			@Override
+			public ServerSocketChannel newChannel(final ChannelPipeline pipeline) {
+				ServerSocketChannel ssc = super.newChannel(pipeline);	
+				sscConfig = ssc.getConfig();
+				return ssc;
+			}			
+		};
 		bootstrap = new ServerBootstrap(channelFactory);
 		bootstrap.setPipelineFactory(this);
-		closeFuture = bootstrap.bind(inetSockAddress).getCloseFuture();
-		LOG.info("Server started on [{}]", inetSockAddress);
-		
+		final CountDownLatch latch = new CountDownLatch(1);
+		final Throwable[] thrown = new Throwable[1];
+		bootstrap.bindAsync(inetSockAddress).addListener(new ChannelFutureListener() {
+			@Override
+			public void operationComplete(final ChannelFuture f) throws Exception {
+				if(f.isSuccess()) {
+					serverChannel = f.getChannel();
+					closeFuture = serverChannel.getCloseFuture();					
+				} else {
+					thrown[0] = f.getCause();
+				}
+				latch.countDown();
+			}
+		});
+		try {
+			if(!latch.await(5, TimeUnit.SECONDS)) {
+				throw new Exception("Server failed to start in time", new Throwable());
+			}
+			if(thrown[0]!=null) {
+				throw new Exception("Server failed to start", thrown[0]);
+			}
+			LOG.info("Server started on [{}]", inetSockAddress);
+		} catch (Exception ex) {
+			LOG.error("Error occured while waiting for server bind.  EXITING....", ex);
+			try { channelFactory.shutdown(); } catch (Exception x) {/* No Op */}
+			System.exit(-1);
+		}
+		bootThread = Thread.currentThread();
+		Thread sdt = new Thread("ServerShutdownHook"){
+			@Override
+			public void run() {
+				shutdown();
+			}
+		};
+		sdt.setDaemon(true);
+		Runtime.getRuntime().addShutdownHook(sdt);
+		final Thread csdl = new Thread("ConsoleShutDownListener") {
+			@Override
+			public void run() {
+				final InputStreamReader isr = new InputStreamReader(System.in, Charset.defaultCharset());
+				final BufferedReader br = new BufferedReader(isr);
+				String line = "";
+				while(true) {
+					try {
+						line = br.readLine();
+						if("exit".equals(line)) {
+							break;
+						}					
+					} catch (Exception x) {/* No Op */}					
+				}
+				LOG.info("Console shutdown triggered");
+				shutdown();
+				return;
+			}
+		};
+		csdl.setDaemon(true);
+		csdl.start();
+		try {
+			Thread.currentThread().join();
+		} catch (InterruptedException iex) {
+			LOG.info("Boot thread interrupted. Shutting down....");
+			bootThread = null;
+			shutdown();
+		}		
+	}
+	
+	/**
+	 *  Stops the server 
+	 */
+	public void shutdown() {
+		if(bootThread!=null) bootThread.interrupt();
+		try { channelFactory.shutdown(); } catch (Exception x) {/* No Op */}
+		LOG.info("Exiting.....");
 	}
 
 	/**
@@ -159,10 +281,151 @@ public class Server implements ChannelPipelineFactory {
         pipeline.addLast("decoder", new HttpRequestDecoder());
         pipeline.addLast("aggregator", new HttpChunkAggregator(65536));
         pipeline.addLast("encoder", new HttpResponseEncoder());
-        pipeline.addLast("handler", new WebSocketServerHandler());		
+        pipeline.addLast("static", staticContentHandler);
+        pipeline.addLast("wshandler", new WebSocketServerHandler());		
+        if(loggingHandlerInstalled) {
+        	if(beforeRelativeHandler) {
+        		pipeline.addBefore(relativeHandler, "logger", loggingHandler);
+        	} else {
+        		pipeline.addAfter(relativeHandler, "logger", loggingHandler);
+        	}
+        }
 		return pipeline;
 	}
 	
+	/**
+	 * Returns 
+	 * @return the loggingHandlerName
+	 */
+	public String getLoggingHandlerName() {
+		return loggingHandlerName;
+	}
+
+	/**
+	 * Sets 
+	 * @param loggingHandlerName the loggingHandlerName to set
+	 */
+	public void setLoggingHandlerName(String loggingHandlerName) {
+		this.loggingHandlerName = loggingHandlerName;
+	}
+
+	/**
+	 * Returns 
+	 * @return the loggingHandlerHexDump
+	 */
+	public boolean isLoggingHandlerHexDump() {
+		return loggingHandlerHexDump;
+	}
+
+	/**
+	 * Sets 
+	 * @param loggingHandlerHexDump the loggingHandlerHexDump to set
+	 */
+	public void setLoggingHandlerHexDump(boolean loggingHandlerHexDump) {
+		this.loggingHandlerHexDump = loggingHandlerHexDump;
+	}
+
+	/**
+	 * Returns 
+	 * @return the loggingHandlerLevel
+	 */
+	public InternalLogLevel getLoggingHandlerLevel() {
+		return loggingHandlerLevel;
+	}
+
+	/**
+	 * Sets the logging handler level  
+	 * @param level the Logging Handler Level name to set
+	 */
+	public void setLoggingHandlerLevel(final String level) {
+		InternalLogLevel lev = InternalLogLevel.valueOf(level.trim().toUpperCase()); 
+		this.loggingHandlerLevel = lev;
+	}
+
+	/**
+	 * @return
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#getBacklog()
+	 */
+	public int getBacklog() {
+		return sscConfig.getBacklog();
+	}
+
+	/**
+	 * @param backlog
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#setBacklog(int)
+	 */
+	public void setBacklog(int backlog) {
+		sscConfig.setBacklog(backlog);
+	}
+
+	/**
+	 * @return
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#isReuseAddress()
+	 */
+	public boolean isReuseAddress() {
+		return sscConfig.isReuseAddress();
+	}
+
+	/**
+	 * @param reuseAddress
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#setReuseAddress(boolean)
+	 */
+	public void setReuseAddress(boolean reuseAddress) {
+		sscConfig.setReuseAddress(reuseAddress);
+	}
+
+	/**
+	 * @return
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#getReceiveBufferSize()
+	 */
+	public int getReceiveBufferSize() {
+		return sscConfig.getReceiveBufferSize();
+	}
+
+	/**
+	 * @param receiveBufferSize
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#setReceiveBufferSize(int)
+	 */
+	public void setReceiveBufferSize(int receiveBufferSize) {
+		sscConfig.setReceiveBufferSize(receiveBufferSize);
+	}
+
+	/**
+	 * @param connectionTime
+	 * @param latency
+	 * @param bandwidth
+	 * @see org.jboss.netty.channel.socket.ServerSocketChannelConfig#setPerformancePreferences(int, int, int)
+	 */
+	public void setPerformancePreferences(int connectionTime, int latency,
+			int bandwidth) {
+		sscConfig.setPerformancePreferences(connectionTime, latency, bandwidth);
+	}
+
+	/**
+	 * @param name
+	 * @param value
+	 * @return
+	 * @see org.jboss.netty.channel.ChannelConfig#setOption(java.lang.String, java.lang.Object)
+	 */
+	public boolean setOption(String name, Object value) {
+		return sscConfig.setOption(name, value);
+	}
+
+	/**
+	 * @return
+	 * @see org.jboss.netty.channel.ChannelConfig#getConnectTimeoutMillis()
+	 */
+	public int getConnectTimeoutMillis() {
+		return sscConfig.getConnectTimeoutMillis();
+	}
+
+	/**
+	 * @param connectTimeoutMillis
+	 * @see org.jboss.netty.channel.ChannelConfig#setConnectTimeoutMillis(int)
+	 */
+	public void setConnectTimeoutMillis(int connectTimeoutMillis) {
+		sscConfig.setConnectTimeoutMillis(connectTimeoutMillis);
+	}
 	
 
 }
