@@ -48,8 +48,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.heliosapm.jmx.util.helpers.StringHelper;
-import com.heliosapm.mws.server.net.ws.annotations.JSONRequestHandler;
-import com.heliosapm.mws.server.net.ws.annotations.JSONRequestService;
+import com.heliosapm.mws.server.net.json.annotations.JSONRequestHandler;
+import com.heliosapm.mws.server.net.json.annotations.JSONRequestService;
 
 /**
  * <p>Title: JSONRequestHandlerInvokerFactory</p>

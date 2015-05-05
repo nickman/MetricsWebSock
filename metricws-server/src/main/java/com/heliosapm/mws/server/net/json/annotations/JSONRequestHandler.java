@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package com.heliosapm.mws.server.net.ws.annotations;
+package com.heliosapm.mws.server.net.json.annotations;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -49,7 +49,7 @@ import com.heliosapm.mws.server.net.json.RequestType;
  * <p>  DEPRECATED: FIXME  Annotated methods must implement the signature defined in {@literal JSONDataService#processRequest(org.json.JSONObject, org.jboss.netty.channel.Channel)}.</p> 
  * <p>Company: Helios Development Group LLC</p>
  * @author Whitehead (nwhitehead AT heliosdev DOT org)
- * <p><code>com.heliosapm.mws.server.net.ws.annotations.JSONRequestHandler</code></p>
+ * <p><code>com.heliosapm.mws.server.net.json.annotations.JSONRequestHandler</code></p>
  */
 @Target({ElementType.METHOD})
 @Retention(RetentionPolicy.RUNTIME)

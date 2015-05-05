@@ -62,8 +62,9 @@ import com.heliosapm.jmx.util.helpers.ConfigurationHelper;
 import com.heliosapm.jmx.util.helpers.ConfigurationHelper.Config;
 import com.heliosapm.jmx.util.helpers.JMXHelper;
 import com.heliosapm.mws.server.logging.ModifiableLoggingHandler;
+import com.heliosapm.mws.server.net.RequestRouter;
 import com.heliosapm.mws.server.net.http.StaticContentHandler;
-import com.heliosapm.mws.server.net.ws.WebSocketServerHandler;
+import com.heliosapm.mws.server.net.json.JSONRequestRouter;
 
 /**
  * <p>Title: Server</p>
@@ -270,6 +271,7 @@ public class Server implements ChannelPipelineFactory {
 		};
 		csdl.setDaemon(true);
 		csdl.start();
+		JSONRequestRouter.getInstance();
 		try {
 			Thread.currentThread().join();
 		} catch (InterruptedException iex) {
@@ -307,6 +309,7 @@ public class Server implements ChannelPipelineFactory {
         	pipeline.addLast("wsaggregator", new WebSocketFrameAggregator(maxFrameSize));
         }
         pipeline.addLast("encoder", new HttpResponseEncoder());
+        pipeline.addLast("requestRouter", new RequestRouter());
         if(loggingHandlerInstalled) {
         	if(beforeRelativeHandler) {
         		pipeline.addBefore(relativeHandler, "logger", loggingHandler);

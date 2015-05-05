@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 package com.heliosapm.mws.server.net.json;
+import java.io.IOException;
+import java.io.InputStream;
+
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationContext;
-import com.fasterxml.jackson.databind.JsonDeserializer;
 import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.util.JSONPObject;
-
-import java.io.IOException;
-import java.io.InputStream;
 
 
 /**
@@ -328,8 +327,15 @@ public class JSON {
 	   * Returns a reference to the JsonFactory for streaming creation
 	   * @return The JsonFactory object
 	   */
-	  public final static JsonFactory getFactory() {
+	  public final static JsonFactory getFactory() {		  
 	    return jsonMapper.getFactory();
+	  }
+	  
+	/**
+	 * @return
+	 */
+	public final static JsonNodeFactory getNodeFactory() {
+		  return jsonMapper.getNodeFactory();
 	  }
 	  
 

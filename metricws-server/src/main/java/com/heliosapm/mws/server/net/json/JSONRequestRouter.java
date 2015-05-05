@@ -25,15 +25,20 @@
 package com.heliosapm.mws.server.net.json;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.reflections.Reflections;
+import org.reflections.scanners.SubTypesScanner;
+import org.reflections.scanners.TypeAnnotationsScanner;
+import org.reflections.scanners.TypesScanner;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.heliosapm.mws.server.net.ws.annotations.JSONRequestHandler;
-import com.heliosapm.mws.server.net.ws.annotations.JSONRequestService;
+import com.heliosapm.mws.server.net.json.annotations.JSONRequestHandler;
+import com.heliosapm.mws.server.net.json.annotations.JSONRequestService;
 
 /**
  * <p>Title: JSONRequestRouter</p>
@@ -76,6 +81,17 @@ public class JSONRequestRouter {
 	 */
 	private JSONRequestRouter() {
 		registerJSONService(this);
+		Reflections r = new Reflections("com", new SubTypesScanner(), new TypesScanner(), new TypeAnnotationsScanner());
+		final Set<Class<?>> jsonRequestServices = r.getTypesAnnotatedWith(JSONRequestService.class, true);
+		for(Class<?> clazz: jsonRequestServices) {
+			try {
+				if(getClass().equals(clazz)) continue;
+				registerJSONService(clazz.newInstance());
+				log.info("Registered JSONService [{}]", clazz.getName());
+			} catch (Exception ex) {
+				log.error("Failed to create invoker for [{}]", clazz.getName(), ex);
+			}
+		}
 	}
 	
 	/**
@@ -88,15 +104,15 @@ public class JSONRequestRouter {
 			invokerMap.putIfAbsent(entry.getKey(), entry.getValue());
 			log.info("Added [{}] JSONRequest Operations for Service [{}] from impl [{}]", entry.getValue().size(), entry.getKey(), service.getClass().getName());
 		}
-		StringBuilder b = new StringBuilder("\n\t=========================================================\n\tJSONRequestRouter Routes\n\t=========================================================");
-		for(Map.Entry<String, Map<String, AbstractJSONRequestHandlerInvoker>> serviceEntry: invokerMap.entrySet()) {
-			b.append("\n\t").append(serviceEntry.getKey());
-			for(String key: serviceEntry.getValue().keySet()) {
-				b.append("\n\t\t").append(key);
-			}
-		}						
-		b.append("\n\t=========================================================\n");
-		log.info(b.toString());
+//		StringBuilder b = new StringBuilder("\n\t=========================================================\n\tJSONRequestRouter Routes\n\t=========================================================");
+//		for(Map.Entry<String, Map<String, AbstractJSONRequestHandlerInvoker>> serviceEntry: invokerMap.entrySet()) {
+//			b.append("\n\t").append(serviceEntry.getKey());
+//			for(String key: serviceEntry.getValue().keySet()) {
+//				b.append("\n\t\t").append(key);
+//			}
+//		}						
+//		b.append("\n\t=========================================================\n");
+//		log.info(b.toString());
 		
 	}
 	

@@ -24,6 +24,7 @@ import static org.jboss.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
 import static org.jboss.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 import org.jboss.netty.buffer.ChannelBuffers;
+import org.jboss.netty.channel.Channel;
 import org.jboss.netty.channel.ChannelFuture;
 import org.jboss.netty.channel.ChannelFutureListener;
 import org.jboss.netty.channel.ChannelHandlerContext;
@@ -43,6 +44,8 @@ import org.jboss.netty.handler.codec.http.websocketx.WebSocketServerHandshakerFa
 import org.jboss.netty.logging.InternalLogger;
 import org.jboss.netty.logging.InternalLoggerFactory;
 import org.jboss.netty.util.CharsetUtil;
+
+import com.heliosapm.mws.server.net.json.JSON;
 
 /**
  * <p>Title: WebSocketServerHandler</p>
@@ -90,7 +93,17 @@ public class WebSocketServerHandler extends SimpleChannelUpstreamHandler {
         if (handshaker == null) {
             wsFactory.sendUnsupportedWebSocketVersionResponse(ctx.getChannel());
         } else {
-            handshaker.handshake(ctx.getChannel(), req).addListener(WebSocketServerHandshaker.HANDSHAKE_LISTENER);
+        	ChannelFuture cf = handshaker.handshake(ctx.getChannel(), req);
+        	cf.addListener(WebSocketServerHandshaker.HANDSHAKE_LISTENER);
+            cf.addListener(new ChannelFutureListener() {
+				@Override
+				public void operationComplete(ChannelFuture f) throws Exception {
+					if(f.isSuccess()) {
+						Channel wsChannel = f.getChannel();
+						wsChannel.write(JSON.getNodeFactory().objectNode().put("sessionid", "" + wsChannel.getId()));
+					}
+				}
+			});
         }
     }
 

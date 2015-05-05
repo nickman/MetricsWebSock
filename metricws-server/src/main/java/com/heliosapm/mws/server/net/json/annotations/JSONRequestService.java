@@ -22,7 +22,7 @@
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org. 
  *
  */
-package com.heliosapm.mws.server.net.ws.annotations;
+package com.heliosapm.mws.server.net.json.annotations;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;

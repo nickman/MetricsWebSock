@@ -153,12 +153,14 @@ public class RequestRouter extends SimpleChannelHandler {
 	    }
 	    try {
 	    	// TODO:  Add CORS handling
-	        final String route = req.getUri().split("/")[0];
+	        final String route = req.getUri().split("/")[1];
 	        final ChannelUpstreamHandler handler = httpHandlers.get(route);
 	        if(handler==null) {
 	        	sendError(ctx, HttpResponseStatus.NOT_FOUND, "No handler found for [" + route + "]");
 	        	return;
 	        }
+	        ctx.getPipeline().addAfter("requestRouter", "wshandshaker", new WebSocketHandshakeHandler());
+	        //ctx.getPipeline().get("wshandshaker").
 	        handler.handleUpstream(ctx, e);
 	    } catch (Exception ex) {
 	    	sendError(ctx, HttpResponseStatus.INTERNAL_SERVER_ERROR, ex.toString());
